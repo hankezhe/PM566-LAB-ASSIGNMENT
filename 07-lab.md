@@ -82,13 +82,24 @@ Use the function `httr::GET()` to make the following query:
 
 ``` r
 library(httr)
+```
+
+    ## Warning: package 'httr' was built under R version 4.0.2
+
+``` r
 query_ids <- GET(
-  url   = "BASELINE URL",
-  query = list("QUERY PARAMETERS")
+  url   = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+  query = list(
+    db = "pubmed",
+    term = "covid19 hawaii",
+    retmax = 1000
+    )
 )
+#query_ids
 
 # Extracting the content of the response of GET
 ids <- httr::content(query_ids)
+#ids
 ```
 
 The query will return an XML object, we can turn it into a character
