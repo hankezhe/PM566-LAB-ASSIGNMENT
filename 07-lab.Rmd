@@ -230,7 +230,9 @@ Finally, put everything together into a single `data.frame` and use
 
 ```{r build-db, eval = TRUE}
 database <- data.frame(
-  "[DATA TO CONCATENATE]"
+  PubMedID=ids,
+  Title=titles,
+  Abstracts=abstracts
 )
 knitr::kable(database)
 ```
