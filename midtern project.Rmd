@@ -1,0 +1,243 @@
+---
+title: "PM-566 Midterm Project"
+output: html_document 
+author: Hanke Zheng
+---
+
+
+# Introducation: 
+The data source for this program is the Disability and Health Data System (DHDS), which is an online state-level data on adults with disabilities in the US in 2018. Prevalence on six functional disability types, including cognitive (serious difficulty concentrating, remembering or making decisions), hearing (serious difficulty hearing or deaf), mobility (serious difficulty walking or climbing stairs), vision (serious difficulty seeing), self-care (difficulty dressing or bathing) and independent living (difficulty doing errands alone),are reported by age group, race, gender, and veteran status within each state, respectively. 
+
+**The objective is to explore the association between disability prevalence and age, and the association between prevalence of different types of disability across the US, especially between cognitive disability and mobidity disability. **
+Several specific questions were addressed.
+- Within each age group, which state has the highest/lowest overall prevalence of disability? 
+- Within each age group, what type of disability is the most prevalent across all the states, and which one is the leaste prevalent? 
+- Is there an association between age and prevalence of disability? 
+- On average, what is the mean prevalence for each disability in each age group? 
+
+## Methods:
+### Read in the data
+- The data was downloaded from the Center of Disease Control and Prevention(https://data.cdc.gov/).
+- There are 7168 rows and 31 coloumns in the raw dataset; it is not ordered. 
+- The raw dataset is a long dataset, with the prevalence of each type of disbility and the prevalence of any disbility by reponse type (e.g. age, race, gender, veteran status) for each state and Health and 11 Humen Health Service (HHS) regions reported in each row. The prevalence of the 6 disability types doesn't add up to be equal to the prevalence of any disability, the potential explanation is that there might be people getting multiple conditions.
+```{r, message=FALSE, echo=FALSE, warning=FALSE, results='hide',fig.show='hide'}
+library(data.table)
+### First download the data and read into data table
+dhds <- data.table::fread("/Users/hankezheng/Desktop/DHDS.csv")
+dhds <- data.frame(dhds)
+dhds_dt <- data.table(dhds)
+dim(dhds)
+head(dhds)
+tail(dhds)
+str(dhds)
+
+### Data cleaning & check on important variables
+library(dplyr)
+library(dtplyr)
+table(dhds_dt$LocationAbbr)
+table(dhds_dt$Response)
+table(dhds_dt$Stratification1)
+table(dhds_dt$StratificationCategory1)
+summary(dhds_dt$Data_Value)
+
+#Select important variables and subset to only include data points reported for each state by age group 
+dhds_age <- dhds %>% filter(IndicatorID=="AGEIND") 
+dhds_age <- dhds_age %>% select(LocationAbbr, LocationDesc, Response, Data_Value,
+                      Low_Confidence_Limit, High_Confidence_Limit, Number, 
+                      StratificationCategory1, Stratification1, IndicatorID, Geolocation)
+# Filter out rows of HHS regions
+dhds %>% 
+  filter(!grepl('HHS', LocationAbbr)) %>% 
+  compute() %>% 
+  nrow()
+dhds_age <- dhds_age %>% filter(!grepl('HHS', LocationAbbr))
+# Check missing values for the key variable 
+dhds_age_dt <- data.table(dhds_age)
+dim(dhds_age_dt[is.na(Data_Value)])[1]/dim(dhds_age_dt)[1]
+# Rename them to make things easier for further analysis
+names(dhds_age)[names(dhds_age) == "Response"] <- "age_grp"
+names(dhds_age)[names(dhds_age) == "Stratification1"] <- "dis_type"
+names(dhds_age)[names(dhds_age) == "LocationAbbr"] <- "state"
+names(dhds_age)[names(dhds_age) == "Data_Value"] <- "prevalence"
+table(dhds_age$age_grp)
+table(dhds_age$dis_type)
+table(dhds_age$state)
+summary(dhds_age$prevalence)
+```
+
+### Prepare the data 
+R package "data table", "dplyr", and "dplyer" were mainly used to check, and manipulate the data to create a final dataset for further analysis. 
+- Since our primary research question is to assess if there is an association between age and prevalence of disbility, and the association between prevalence of different disbilities within each age group, I excluded rows for which the responses were not age and the values reported from the HHS level. Some variables were renamed for easier reference.
+
+- In the subsetted dataset, only 19 (1.47%) of the key variable for the prevalence is missing.
+
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE, results='hide',fig.show='hide'}
+# Reshape the data from long to wide 
+# Making sure the main dataset is sorted by state and age group. 
+dhds_age_any <- dhds_age %>% filter(grepl('Any', dis_type)) %>% arrange(state, age_grp) 
+names(dhds_age_any)[names(dhds_age_any) == "prevalence"] <- "pre_any"
+summary(dhds_age_any$pre_any)
+
+dhds_age_cog <- dhds_age %>% filter(grepl('Cog', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_cog)[names(dhds_age_cog) == "prevalence"] <- "pre_cog"
+dhds_age_cog <- dhds_age_cog %>% select(pre_cog)
+
+dhds_age_hearing <- dhds_age %>% filter(grepl('Hear', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_hearing)[names(dhds_age_hearing) == "prevalence"] <- "pre_hear"
+dhds_age_hearing <- dhds_age_hearing %>% select(pre_hear)
+
+dhds_age_mob <- dhds_age %>% filter(grepl('Mob', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_mob)[names(dhds_age_mob) == "prevalence"] <- "pre_mob"
+dhds_age_mob <- dhds_age_mob %>% select(pre_mob)
+
+dhds_age_vis <- dhds_age %>% filter(grepl('Vis', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_vis)[names(dhds_age_vis) == "prevalence"] <- "pre_vis"
+dhds_age_vis <- dhds_age_vis %>% select(pre_vis)
+
+dhds_age_self <- dhds_age %>% filter(grepl('Self', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_self)[names(dhds_age_self) == "prevalence"] <- "pre_self"
+dhds_age_self <- dhds_age_self %>% select(pre_self)
+
+dhds_age_ind <- dhds_age %>% filter(grepl('Ind', dis_type)) %>% arrange(state, age_grp)
+names(dhds_age_ind)[names(dhds_age_ind) == "prevalence"] <- "pre_ind"
+dhds_age_ind <- dhds_age_ind %>% select(pre_ind)
+
+dhds_age_comb <- cbind(dhds_age_any,dhds_age_cog, dhds_age_hearing, dhds_age_mob, dhds_age_vis, dhds_age_self, dhds_age_ind)
+
+# Created a new variable to document the disease type with the greatest prevalence for each state by age.
+head(dhds_age_comb)
+# Get the max value of prevalence of each disability.
+max_pre <- dhds_age_comb %>% select(pre_cog,pre_hear,pre_mob,pre_vis,pre_self,pre_ind)
+max_pre$max<-apply(X=max_pre, MARGIN=1, FUN=max, na.rm=TRUE )
+head(max_pre)
+max_pre <- max_pre %>% select(max)
+dhds_age_comb <- cbind(dhds_age_comb,max_pre)
+head(dhds_age_comb)
+dhds_age_comb$most_dis_type <- ifelse(dhds_age_comb$max==dhds_age_comb$pre_cog, "cognitive", 
+                               ifelse(dhds_age_comb$max==dhds_age_comb$pre_hear, "hearing",
+                                ifelse(dhds_age_comb$max==dhds_age_comb$pre_mob, "mobidity", 
+                                ifelse(dhds_age_comb$max==dhds_age_comb$pre_vis,"vision",
+                                ifelse(dhds_age_comb$max==dhds_age_comb$pre_self, "self care","independence")))))
+table(dhds_age_comb$most_dis_type)
+
+# Only keep important variables in the final dataset for analysis
+str(dhds_age_comb)
+dhds_age_comb <- dhds_age_comb %>% select(state, LocationDesc,age_grp, pre_any,
+                                   pre_cog, pre_hear, pre_mob, pre_vis,pre_self, pre_ind,
+                                   most_dis_type)
+str(dhds_age_comb)
+head(dhds_age_comb)
+
+
+```
+
+### Prepare the data 
+- For future comparisons between prevalence of different types of disabilities, the dataset was reshaped from long to wide to have the prevalence of different disabilities as a seperate variable in the dataset. 
+
+- Comparing the prevalence value in each row, a new categorical variable was created to record the disease type with the greatest prevalence for each state by age. 
+- In the final dataset for analysis, there are 162 rows and 13 coloumns of interest. The number of NAs for those key variables (prevalence) is very small. 
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE, results='hide',fig.show='hide'}
+# Check if there's any NA for each prevalence value and do some exploratory statistics 
+summary(dhds_age_comb$pre_any)
+summary(dhds_age_comb$pre_cog)
+summary(dhds_age_comb$pre_hear)
+summary(dhds_age_comb$pre_mob)
+summary(dhds_age_comb$pre_vis)
+summary(dhds_age_comb$pre_self)
+summary(dhds_age_comb$pre_ind)
+hist(dhds_age_comb$pre_any)
+hist(dhds_age_comb$pre_cog)
+hist(dhds_age_comb$pre_hear)
+hist(dhds_age_comb$pre_mob)
+hist(dhds_age_comb$pre_vis)
+hist(dhds_age_comb$pre_self)
+hist(dhds_age_comb$pre_ind)
+# Which state has the greatest prevalence of any disability and which state has the least prevalence?
+library(data.table)
+dhds_age_comb_dt <- data.table(dhds_age_comb)
+dhds_age_comb_dt[(age_grp=="18-44")][order(pre_any)]%>% head(1)
+dhds_age_comb_dt[(age_grp=="18-44")][order(pre_any)]%>% tail(1)
+dhds_age_comb_dt[(age_grp=="45-64")][order(pre_any)]%>% head(1)
+dhds_age_comb_dt[(age_grp=="45-64")][order(pre_any)]%>% tail(1)
+dhds_age_comb_dt[(age_grp=="65+")][order(pre_any)]%>% head(1)
+dhds_age_comb_dt[(age_grp=="65+")][order(pre_any)]%>% tail(1)
+
+```
+### Chek the data and do some exploratory analysis
+- The number of NAs for those key variables (prevalence) is very small. 
+- The distribution of prevalence of any disease is not normally distributed. With a mean of 30.92%, most data points are concentrated between 15-25% and 40-45%. Except for hearing and mobilidity disabilities, the distribution of all other types of disability is normal. The mean of prevalence of mobility disability is the highest (16.6%) whereas it's the lowest for self-care disability (4.365%).
+
+- For age 18-44, disability of any disease is the least prevalent in DC (12.9%) whereas it's most prevalent in Puerto Rico(29.3%). For age 45-65, For age 65+,disability of any disease is the least prevalent in Colorado (20.6%) whereas it's the most prevalent in Puerto Rico(53.3%). For 65+, disability of any disease is the least prevalent in Colorado (32.2%) whereas it's the most prevalent in Puerto Rico (62.8%).
+
+
+## Results:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+###### Explore the association between age and prevalence
+library(data.table)
+dhds_age_comb_dt <- data.table(dhds_age_comb_dt)
+dhds_age_avg <- dhds_age_comb_dt[, .(
+    pre_any_avg = mean(pre_any, na.rm=TRUE),
+    pre_cog_avg = mean(pre_cog, na.rm=TRUE),
+    pre_hear_avg=mean(pre_hear, na.rm=TRUE), 
+    pre_mob_avg=mean(pre_mob, na.rm=TRUE), 
+    pre_vis_avg=mean(pre_vis,na.rm=TRUE),
+    pre_self_avg=mean(pre_self,na.rm=TRUE), 
+    pre_ind_ang=mean(pre_ind,na.rm=TRUE)
+    ),
+    by = c("age_grp")
+    ][order(age_grp)] %>% head()
+
+# knit a table for the results
+library(knitr)
+kable(dhds_age_avg, format="simple")
+
+# data visualization 
+library(ggplot2)
+dhds_age_comb %>%
+  filter(!(pre_any %in% NA)) %>%
+ggplot()+
+  geom_boxplot(mapping=aes(x=age_grp, y=pre_any))+
+  labs(title="Prevalence of any disability by age", x="age", y="prevalence(%)")
+
+dhds_age_comb %>%
+  filter(!(pre_any %in% NA)) %>%
+ggplot() +
+  geom_boxplot(mapping=aes(y=pre_any, fill=age_grp)) + 
+  facet_wrap(~age_grp,nrow=1) +
+  labs(title="Prevalence of any disability by age", x="age", y="prevalence of any disability(%)")
+
+# disability type with the greatest prevalence
+dhds_age_comb %>%
+  filter(!(most_dis_type %in% NA)) %>%
+  ggplot()+
+  geom_bar(mapping=aes(x=age_grp,fill=most_dis_type))+
+  # change the default palette
+  scale_fill_brewer(palette = "PuOr")+
+  labs(title="Most prevalent disability type by age group", x="age group", y="Count")
+  theme()
+
+### Explore potential association between prevalence of different types of disabilities. 
+dhds_age_comb %>%
+  filter(!(pre_mob%in% NA) & !(pre_cog%in% NA)) %>%
+  ggplot(mapping=aes(x=pre_cog, y=pre_mob, color=age_grp))+
+  geom_point()+
+  stat_smooth(method=lm) +
+  labs(title="The association between prevalence of cognitive and mobidity disability", x="cognitive disability(%)", y="mobidity disability(%)")
+  theme()
+  
+```
+
+- Based on the calculated average prevalence by age, there is an increasing trend by age seen in the prevalence of any disability: 18.86% for 18-44, 29.77% for 45-64, and 44.13% for 65+. Similar increasing trends are observed in hearing disability, mobility disability, vision disability and independence disability. An obvious positive association between age and prevalence of any disability was osberved from the boxplots. 
+
+- As shown from the barchart, the prevalence of cognitive disability is the greatest for age of 18-44 in all states in 2018. Mobidity disability is the most prevalent for age 45-64 in all states, and it's also the most prevalent for age 65+ in most states (the prevalence of hearing disability is the greatest in several states).
+
+- As shown from the scatterplots, there is a positive association between prevalence of cognitive disability and mobidity disability, meaning that if the prelence of cognitive disability is high in one state the prevalence of mobidity disability is also likely to be high.The slopes for age 45-64 and 65+ are close whereas the curve is relatively flat for age of 18-44. 
+
+## Conclusion:
+- Puerto Rico is the region with the highest prevalence of any disability in all ages in 2018.
+- Across all states, cognitive disability and mobidity disability are the two that are most prevalent in comparative to other types of disability, with cognitive disability more prevalent among the young (<65) and mobidity disability being more common in older population(65+). 
+- Overall, the prevalences of any disability, hearing disability, mobility disability, vision disability and independence disability are positively associated with aging. People are more likely to be in a stage with these types of disability as they age. 
+- There is a positive association between prevalence of cognitive disability and mobidity disability, but mroe information is needed to ascertain this relationship. 
