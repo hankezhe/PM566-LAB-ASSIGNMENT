@@ -308,13 +308,13 @@ fun1alt &lt;- function(n = 100, k = 4, lambda = 4) {
 # Benchmarking
 # install.packages(&quot;microbenchmark&quot;)
 microbenchmark::microbenchmark(
-  fun1(),
-  fun1alt(), unit=&quot;relative&quot;
+  fun1(100),
+  fun1alt(100), unit=&quot;relative&quot;
 )</code></pre>
 <pre><code>## Unit: relative
-##       expr    min       lq     mean   median       uq     max neval
-##     fun1() 16.259 22.44593 17.05031 22.16856 21.05793 10.8983   100
-##  fun1alt()  1.000  1.00000  1.00000  1.00000  1.00000  1.0000   100</code></pre>
+##          expr      min       lq     mean   median       uq      max neval
+##     fun1(100) 17.02493 21.15774 14.54212 22.02244 21.93484 7.625442   100
+##  fun1alt(100)  1.00000  1.00000  1.00000  1.00000  1.00000 1.000000   100</code></pre>
 <ol start="2" style="list-style-type: decimal">
 <li>Find the column max (hint: Checkout the function <code>max.col()</code>).</li>
 </ol>
@@ -355,14 +355,17 @@ my_boot &lt;- function(dat, stat, R, ncpus = 1L) {
   idx &lt;- matrix(sample.int(n, n*R, TRUE), nrow=n, ncol=R)
  
   # Making the cluster using `ncpus`
-  # STEP 1: make cluster
-  cl&lt;-makePSOCKcluster(ncpus)
+  # STEP 1: Make cluster
+  cl &lt;- makePSOCKcluster(ncpus)
+  # on.exit(stopCluster(cl))
   
-  # STEP 2: set up (export data if needed), idx, dat
-  clusterExport(cl,varlist=c(&quot;idx&quot;,&quot;dat&quot;, &quot;stat&quot;),envir = environment())
+  # STEP 2: Set it up (export data if needed), idx, dat
+  clusterExport(cl, varlist = c(&quot;idx&quot;, &quot;dat&quot;, &quot;stat&quot;), envir = environment())
+  # clusterSetRNGStream(cl, 12312)
+  # clusterEvalQ(cl, library(ggplot2))
   
   # STEP 3: THIS FUNCTION NEEDS TO BE REPLACES WITH parLapply
-  ans &lt;- lapply(cl, seq_len(R), function(i) {
+  ans &lt;- parLapply(cl, seq_len(R), function(i) {
     stat(dat[idx[,i], , drop=FALSE])
   })
   
@@ -371,6 +374,7 @@ my_boot &lt;- function(dat, stat, R, ncpus = 1L) {
   
   # STEP 4: stop the cluster
   stopCluster(cl)
+  
   ans
   
 }</code></pre>
@@ -378,34 +382,51 @@ my_boot &lt;- function(dat, stat, R, ncpus = 1L) {
 <li>Use the previous pseudocode, and make it work with parallel. Here is just an example for you to try:</li>
 </ol>
 <pre class="r"><code>library(parallel)
+cl &lt;- makePSOCKcluster(4)
 # Bootstrap of an OLS
 my_stat &lt;- function(d) coef(lm(y ~ x, data=d))
 
 # DATA SIM
 set.seed(1)
-n &lt;- 500; R &lt;- 1e4
+n &lt;- 500
+R &lt;- 1000
 
-x &lt;- cbind(rnorm(n)) 
+x &lt;- cbind(rnorm(n))
 y &lt;- x*5 + rnorm(n)
 
 # Checking if we get something similar as lm
 ans0 &lt;- confint(lm(y~x))
-ans1 &lt;- my_boot(dat = data.frame(x, y), my_stat, R = R, ncpus = 2L)
+ans1 &lt;- my_boot(
+  dat   = data.frame(x, y),
+  stat  = my_stat,
+  R     = R,
+  ncpus = 2L
+  )
 
 # You should get something like this
-t(apply(ans1, 2, quantile, c(.025,.975)))
-##                   2.5%      97.5%
+t(apply(ans1, 2, quantile, c(.025,.975)))</code></pre>
+<pre><code>##                   2.5%      97.5%
+## (Intercept) -0.1430703 0.05292241
+## x            4.8685251 5.04843669</code></pre>
+<pre class="r"><code>##                   2.5%      97.5%
 ## (Intercept) -0.1372435 0.05074397
 ## x            4.8680977 5.04539763
-ans0
-##                  2.5 %     97.5 %
+ans0</code></pre>
+<pre><code>##                  2.5 %     97.5 %
+## (Intercept) -0.1379033 0.04797344
+## x            4.8650100 5.04883353</code></pre>
+<pre class="r"><code>##                  2.5 %     97.5 %
 ## (Intercept) -0.1379033 0.04797344
 ## x            4.8650100 5.04883353</code></pre>
 <ol start="2" style="list-style-type: decimal">
 <li>Check whether your version actually goes faster than the non-parallel version:</li>
 </ol>
-<pre class="r"><code>system.time(my_boot(dat = data.frame(x, y), mi_stat, R = 4000, ncpus = 1L))
-system.time(my_boot(dat = data.frame(x, y), mi_stat, R = 4000, ncpus = 2L))</code></pre>
+<pre class="r"><code>system.time(my_boot(dat = data.frame(x, y), my_stat, R = 3000, ncpus = 1L))</code></pre>
+<pre><code>##    user  system elapsed 
+##   0.064   0.011   2.867</code></pre>
+<pre class="r"><code>system.time(my_boot(dat = data.frame(x, y), my_stat, R = 3000, ncpus = 2L))</code></pre>
+<pre><code>##    user  system elapsed 
+##   0.089   0.011   1.687</code></pre>
 </div>
 <div id="problem-4-compile-this-markdown-document-using-rscript" class="section level2">
 <h2>Problem 4: Compile this markdown document using Rscript</h2>
