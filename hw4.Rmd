@@ -1,0 +1,161 @@
+---
+title: "Assignment 04 "
+output: github_document
+author: Hanke Zheng
+---
+
+# HPC
+## Problem 1: Make sure the code is nice
+Rewrite the R functions to make them faster (take a look at stackoverflow and google).
+
+```{r}
+# Total row sums
+fun1 <- function(mat) {
+  n <- nrow(mat)
+  ans <- double(n) 
+  for (i in 1:n) {
+    ans[i] <- sum(mat[i, ])
+  }
+  ans
+}
+
+fun1alt <- function(mat) {
+ rowSums(mat, na.rm = FALSE)
+}
+
+# Cumulative sum by row
+fun2 <- function(mat) {
+  n <- nrow(mat)
+  k <- ncol(mat)
+  ans <- mat
+  for (i in 1:n) {
+    for (j in 2:k) {
+      ans[i,j] <- mat[i, j] + ans[i, j - 1]
+    }
+  }
+  ans
+}
+
+fun2alt <- function(mat) {
+  for(i in seq_len(dim(mat)[1])) { mat[i,] <- cumsum(mat[i,]) }; mat
+}
+
+# Use the data with this code
+set.seed(2315)
+dat <- matrix(rnorm(200 * 100), nrow = 200)
+
+# Test for the first
+microbenchmark::microbenchmark(
+  fun1(dat),
+  fun1alt(dat), unit = "relative", check = "equivalent"
+)
+
+# Test for the second
+microbenchmark::microbenchmark(
+  fun2(dat),
+  fun2alt(dat), unit = "relative", check = "equivalent"
+)
+```
+## Problem 2: Parallel computing
+The following function allows simulating PI
+```{r}
+sim_pi <- function(n = 1000, i = NULL) {
+  p <- matrix(runif(n*2), ncol = 2)
+  mean(rowSums(p^2) < 1) * 4
+}
+
+# Here is an example of the run
+set.seed(156)
+sim_pi(1000) # 3.132
+```
+
+In order to get accurate estimates, we can run this function multiple times, with the following code:
+```{r}
+# This runs the simulation a 4,000 times, each with 10,000 points
+set.seed(1231)
+system.time({
+  ans <- unlist(lapply(1:4000, sim_pi, n = 10000))
+  print(mean(ans))
+})
+```
+
+
+Rewrite the previous code using parLapply() to make it run faster. Make sure you set the seed using clusterSetRNGStream():
+```{r}
+# YOUR CODE HERE
+library(parallel)
+system.time({
+  cl <- makePSOCKcluster(2L, setup_strategy = "sequential") # STEP 1: Make cluster
+  clusterSetRNGStream(cl, 1231) # Set seed
+  ans <- unlist(parLapply(cl,1:4000, sim_pi, n = 10000))
+  print(mean(ans))
+  stopCluster(cl)
+})
+```
+
+# SQL
+## Set up a temporary database
+```{r}
+#install.packages(c("RSQLite", "DBI"))
+library(RSQLite)
+library(DBI)
+
+# Initialize a temporary in memory database
+con <- dbConnect(SQLite(), ":memory:")
+
+# Download tables
+film <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/film.csv")
+film_category <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/film_category.csv")
+category <- read.csv("https://raw.githubusercontent.com/ivanceras/sakila/master/csv-sakila-db/category.csv")
+
+# Copy data.frames to database
+dbWriteTable(con, "film", film)
+dbWriteTable(con, "film_category", film_category)
+dbWriteTable(con, "category", category)
+
+```
+
+
+## Question 1: How many movies is there available in each rating category? 
+```{sql, connection=con}
+SELECT rating, COUNT(*) AS count
+FROM film
+GROUP BY rating
+```
+There are 180, 210, 194, 223, and 195 films grouped in G, NC-17, PG, PG-13, R.
+
+## Question 2: What is the average replacement cost and rental rate for each rating category.
+SELECT avg(amount), min(amount), max(amount), sum(amount)
+FROM payment
+```{sql, connection=con}
+SELECT avg(replacement_cost),avg(rental_rate),rating
+FROM film
+GROUP BY rating
+```
+In rating group G, NC-17, PG, PG-13, and R, the average replacement costs are 20.12, 20.14, 18.96, 20.4, and 20.23; the average rental rate are 2.91, 2.97, 3.05, 3.03, and 2.94.
+
+## Question 3: Use table film_category together with film to find the how many films there are with each category ID
+
+```{sql, connection=con}
+SELECT a.film_id, count(b.film_id) as COUNT,a.category_id, b.film_id
+FROM film_category AS a
+  INNER JOIN film AS b on a.film_id = b.film_id
+GROUP BY category_id
+ORDER BY COUNT DESC 
+```
+Films with category ID of 10 are them are the most popular ones.
+
+## Question 4: Incorporate table category into the answer to the previous question to find the name of the most popular category.
+
+
+```{sql, connection=con}
+SELECT name, a.category_id , count(a.film_id) as COUNT
+FROM film_category a 
+  JOIN film b on a.film_id=b.film_id
+  JOIN category c on a.category_id=c.category_id 
+GROUP BY a.category_id
+ORDER BY COUNT DESC
+```
+
+The most popular category is Sprorts followed by Foreign, with 74 films in Sports and 73 in Foreign.
+
