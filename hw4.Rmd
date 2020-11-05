@@ -37,8 +37,11 @@ fun2 <- function(mat) {
 }
 
 fun2alt <- function(mat) {
-  for(i in seq_len(dim(mat)[1])) { mat[i,] <- cumsum(mat[i,]) }; mat
-}
+  ans <- mat
+  for (i in 1:nrow(mat)) {
+    ans[i, ] <- cumsum(mat[i, ])
+  }
+  ans}
 
 # Use the data with this code
 set.seed(2315)

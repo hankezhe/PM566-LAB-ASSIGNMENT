@@ -38,8 +38,11 @@ fun2 <- function(mat) {
 }
 
 fun2alt <- function(mat) {
-  for(i in seq_len(dim(mat)[1])) { mat[i,] <- cumsum(mat[i,]) }; mat
-}
+  ans <- mat
+  for (i in 1:nrow(mat)) {
+    ans[i, ] <- cumsum(mat[i, ])
+  }
+  ans}
 
 # Use the data with this code
 set.seed(2315)
@@ -53,9 +56,9 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: relative
-    ##          expr      min       lq     mean   median       uq       max neval
-    ##     fun1(dat) 9.223552 10.53536 7.507257 10.70307 10.31917 0.3670604   100
-    ##  fun1alt(dat) 1.000000  1.00000 1.000000  1.00000  1.00000 1.0000000   100
+    ##          expr      min       lq     mean  median       uq       max neval
+    ##     fun1(dat) 9.709727 10.31391 7.700142 10.5317 10.58774 0.4210937   100
+    ##  fun1alt(dat) 1.000000  1.00000 1.000000  1.0000  1.00000 1.0000000   100
 
 ``` r
 # Test for the second
@@ -66,9 +69,9 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: relative
-    ##          expr      min       lq     mean   median      uq        max neval
-    ##     fun2(dat) 4.693822 3.401909 1.895178 3.163432 3.05725 0.06042256   100
-    ##  fun2alt(dat) 1.000000 1.000000 1.000000 1.000000 1.00000 1.00000000   100
+    ##          expr      min       lq     mean   median       uq       max neval
+    ##     fun2(dat) 4.780893 3.159667 2.470648 3.174076 3.093207 0.1553627   100
+    ##  fun2alt(dat) 1.000000 1.000000 1.000000 1.000000 1.000000 1.0000000   100
 
 ## Problem 2: Parallel computing
 
@@ -102,7 +105,7 @@ system.time({
     ## [1] 3.14124
 
     ##    user  system elapsed 
-    ##   2.923   0.768   3.711
+    ##   2.867   0.784   3.674
 
 Rewrite the previous code using parLapply() to make it run faster. Make
 sure you set the seed using clusterSetRNGStream():
@@ -122,7 +125,7 @@ system.time({
     ## [1] 3.141577
 
     ##    user  system elapsed 
-    ##   0.009   0.009   2.284
+    ##   0.008   0.006   2.266
 
 # SQL
 
